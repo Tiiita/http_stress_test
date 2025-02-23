@@ -1,14 +1,8 @@
 use std::{
-    collections::HashMap,
-    io::Write,
-    process::exit,
-    str::FromStr,
-    sync::{
+    collections::HashMap, io::Write, process::exit, str::FromStr, sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
-    },
-    thread,
-    time::Duration,
+    }, thread, time::{Duration, Instant}
 };
 
 use clap::{arg, command, Parser, ValueEnum};
@@ -67,7 +61,8 @@ async fn main() {
     println!("{prefix} Waiting for requests to finish");
     let successes = Arc::new(AtomicUsize::new(0));
     let fails = Arc::new(AtomicUsize::new(0));
-  
+
+    let start_time = Instant::now();
     for _ in 0..count {
         let prefix = prefix.clone();
         let successes = Arc::clone(&successes);
@@ -93,7 +88,8 @@ async fn main() {
     }
 
     println!(
-        "{prefix} Done! Successes: {}, Fails: {}",
+        "{prefix} Done ({})! Successes: {}, Fails: {}",
+        format!("{} ms", start_time.elapsed().as_millis()).blue(),
         successes.load(Ordering::Relaxed).to_string().green(),
         fails.load(Ordering::Relaxed).to_string().red()
     );
