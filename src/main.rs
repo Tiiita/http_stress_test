@@ -17,8 +17,11 @@ struct Args {
     #[arg(short, long)]
     addr: String,
 
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(short, long, default_value_t = 25)]
     count: u32,
+
+    #[arg(short, long, default_value_t = true)]
+    https: bool,
 }
 
 #[tokio::main]
@@ -26,7 +29,7 @@ async fn main() {
     let prefix = "[>]".blue().bold();
     let args = Args::parse();
     let count = args.count;
-    let addr = add_https_if_missing(&args.addr);
+    let addr = add_https_if_missing(&args.addr, args.https);
     let mut tasks = vec![];
 
     println!("{prefix} Going to send: {} requests to: {}, in 3 seconds", count.to_string().blue(), addr.blue());
@@ -35,18 +38,18 @@ async fn main() {
     let successes = Arc::new(AtomicUsize::new(0));
     let fails = Arc::new(AtomicUsize::new(0));
 
-    for i in 0..count {
+
+    for _ in 0..count {
         let url = addr.clone();
         let prefix = prefix.clone();
         
-        // Cloning the Arc references for the task
         let successes = Arc::clone(&successes);
         let fails = Arc::clone(&fails);
 
         tasks.push(task::spawn(async move {
             match reqwest::get(url).await {
                 Ok(response) => {
-                    println!("{prefix} ({i}) Response status: {}", response.status());
+                    println!("{prefix} Response status: {}", response.status());
                     successes.fetch_add(1, Ordering::Relaxed);
                 }
                 Err(e) => {
@@ -69,10 +72,15 @@ async fn main() {
 }
 
 
-fn add_https_if_missing(url: &str) -> String {
+fn add_https_if_missing(url: &str, https: bool) -> String {
     if url.starts_with("http://") || url.starts_with("https://") {
         url.to_string()
     } else {
-        format!("https://{}", url)
+        if https {
+            format!("https://{}", url)
+        } else {
+            format!("http://{}", url)
+        }
+        
     }
 }
