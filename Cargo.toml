@@ -1,0 +1,6 @@
+[package]
+name = "http_stress_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
