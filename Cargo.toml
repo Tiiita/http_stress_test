@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = "4.5.30"
+clap = { version = "4.5.30", features = ["derive"] }
 colored = "3.0.0"
 reqwest = "0.12.12"
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
