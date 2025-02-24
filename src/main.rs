@@ -86,6 +86,7 @@ async fn main() {
     let fails_clone = fails.clone();
     let start_time_clone = start_time.clone();
     let logs = args.logs.clone();
+
     ctrlc::set_handler(move || {
         let prefix_c = prefix_clone.clone();
         println!("{} Exiting.. Stats below:", prefix_clone);
@@ -107,7 +108,6 @@ async fn main() {
         if args.delay != 0 {
             time::sleep(Duration::from_millis(args.delay.into())).await;
         }
-
         tasks.push(task::spawn(async move {
             match client.execute(request).await {
                 Ok(response) => {

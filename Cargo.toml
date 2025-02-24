@@ -10,3 +10,4 @@ colored = "3.0.0"
 ctrlc = "3.4.5"
 reqwest = "0.12.12"
 tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "time"] }
+tokio-util = "0.7.13"
