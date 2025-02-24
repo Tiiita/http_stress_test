@@ -30,7 +30,7 @@ struct Args {
     #[arg(short, long, default_value_t = HttpMethod::GET)]
     method: HttpMethod,
 
-    #[arg(short, long)]
+    #[arg(short, long, value_parser, allow_hyphen_values = true)]
     body: Option<String>,
 
     #[arg(short, long, default_value_t = 0)]
@@ -56,7 +56,6 @@ async fn main() {
     let client = Arc::new(Client::new());
 
     clear_log(args.logs);
-
     let request = build_request(args.clone(), prefix.clone());
 
     for i in (1..=timer_seconds).rev() {
