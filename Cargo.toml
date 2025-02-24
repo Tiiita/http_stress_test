@@ -7,4 +7,4 @@ edition = "2021"
 clap = { version = "4.5.30", features = ["derive"] }
 colored = "3.0.0"
 reqwest = "0.12.12"
-tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "time"] }

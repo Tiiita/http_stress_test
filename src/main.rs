@@ -8,7 +8,7 @@ use std::{
 use clap::{arg, command, Parser, ValueEnum};
 use colored::{ColoredString, Colorize};
 use reqwest::{Body, Client, Method, Request, Url};
-use tokio::task;
+use tokio::{task, time};
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
@@ -19,11 +19,17 @@ struct Args {
     #[arg(short, long, default_value_t = 25)]
     count: u32,
 
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = HttpMethod::GET)]
     method: HttpMethod,
 
     #[arg(short, long)]
     body: Option<String>,
+
+    #[arg(short, long, default_value_t = 0)]
+    delay: u32,
+
+    #[arg(short, long = "expected", default_value_t = 200)]
+    expected_code: u16,
 
     #[arg(short = 'H', long)]
     headers: Option<Vec<String>>,
@@ -69,11 +75,20 @@ async fn main() {
         let fails = Arc::clone(&fails);
         let client = Arc::clone(&client);
         let request = build_request(args.clone(), prefix.clone());
-
+        
+        if args.delay != 0 {
+            time::sleep(Duration::from_millis(args.delay.into())).await;
+        }
+   
         tasks.push(task::spawn(async move {
             match client.execute(request).await {
-                Ok(_) => {
-                    successes.fetch_add(1, Ordering::Relaxed);
+                Ok(response) => {
+                    if response.status().as_u16() != args.expected_code {
+                        fails.fetch_add(1, Ordering::Relaxed);
+                        println!("{prefix} Unexpected Status: {}", response.status().to_string().red());
+                    } else {
+                        successes.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
                 Err(why) => {
                     fails.fetch_add(1, Ordering::Relaxed);
@@ -83,7 +98,7 @@ async fn main() {
         }));
     }
 
-    for task in tasks {
+    for task in tasks {       
         task.await.unwrap();
     }
 
@@ -95,21 +110,26 @@ async fn main() {
     );
 }
 
-fn build_request(args: Args, prefix: ColoredString) -> Request {
-    let headers_map: HashMap<String, String> = args.headers.unwrap()
-    .iter()
-    .map(|header| {
-        let parts: Vec<&str> = header.trim().split(":").collect();
-        if parts.len() != 2 {
-            eprintln!("Invalid header format: '{}'. Expected 'key: value'", header);
-            std::process::exit(1);
-        }
-        let key = parts[0].trim().to_string();
-        let value = parts[1].trim().to_string();
-        (key, value)
-    })
-    .collect();
 
+fn build_request(args: Args, prefix: ColoredString) -> Request {
+    let headers_map: HashMap<String, String> = match args.headers {
+        Some(headers) => {
+            headers
+            .iter()
+            .map(|header| {
+                let parts: Vec<&str> = header.trim().split(":").collect();
+                if parts.len() != 2 {
+                    eprintln!("Invalid header format: '{}'. Expected 'key: value'", header);
+                    std::process::exit(1);
+                }
+                let key = parts[0].trim().to_string();
+                let value = parts[1].trim().to_string();
+                (key, value)
+            })
+            .collect()
+        },
+        None => { HashMap::new() },
+    };
 
     let method = Method::from(args.method);
     let url = Url::from_str(&add_http_if_missing(&args.addr));
@@ -156,6 +176,20 @@ enum HttpMethod {
     PATCH,
     HEAD,
     OPTIONS,
+}
+
+impl ToString for HttpMethod {
+    fn to_string(&self) -> String {
+        match self {
+            HttpMethod::GET => "get".into(),
+            HttpMethod::POST => "post".into(),
+            HttpMethod::PUT => "put".into(),
+            HttpMethod::DELETE => "delete".into(),
+            HttpMethod::PATCH => "patch".into(),
+            HttpMethod::HEAD => "head".into(),
+            HttpMethod::OPTIONS => "options".into(),
+        }
+    }
 }
 
 impl From<HttpMethod> for Method {
