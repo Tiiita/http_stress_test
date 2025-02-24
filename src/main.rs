@@ -116,7 +116,7 @@ async fn main() {
                     } else {
                         successes.fetch_add(1, Ordering::Relaxed);
                         log_to_file(
-                            LogLevel::Info(format!("Got Response: {}", response.status()).as_str()),
+                            LogLevel::Info(format!("Got Response (as expected): {}", response.status()).as_str()),
                             args.logs,
                         );
                     }
