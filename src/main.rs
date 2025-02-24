@@ -98,20 +98,22 @@ async fn main() {
                 Ok(response) => {
                     if response.status().as_u16() != args.expected_code {
                         fails.fetch_add(1, Ordering::Relaxed);
+                        println!(
+                            "{prefix} Unexpected Status (see logs for more): {}",
+                            response.status().to_string().red()
+                        );
+
                         log_to_file(
                             LogLevel::Error(
                                 format!(
-                                    "Got Unexpected Code (Expected: {}): {}",
+                                    "Got Unexpected Code (Expected: {}): {}, text: {}",
                                     args.expected_code,
-                                    response.status()
+                                    response.status(),
+                                    response.text().await.unwrap_or("None".into()),
                                 )
                                 .as_str(),
                             ),
                             args.logs,
-                        );
-                        println!(
-                            "{prefix} Unexpected Status: {}",
-                            response.status().to_string().red()
                         );
                     } else {
                         successes.fetch_add(1, Ordering::Relaxed);
