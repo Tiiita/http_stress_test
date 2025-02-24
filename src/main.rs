@@ -79,8 +79,24 @@ async fn main() {
     println!("{prefix} Waiting for requests to finish");
     let successes = Arc::new(AtomicUsize::new(0));
     let fails = Arc::new(AtomicUsize::new(0));
-
     let start_time = Instant::now();
+
+    let prefix_clone = prefix.clone();
+    let success_clone = successes.clone();
+    let fails_clone = fails.clone();
+    let start_time_clone = start_time.clone();
+    let logs = args.logs.clone();
+    ctrlc::set_handler(move || {
+        let prefix_c = prefix_clone.clone();
+        println!("{} Exiting.. Stats below:", prefix_clone);
+        let elapsed_time = start_time_clone.elapsed();
+        let successes = success_clone.load(Ordering::Relaxed);
+        let fails = fails_clone.load(Ordering::Relaxed);
+        log_stats(elapsed_time, successes, fails, logs, prefix_c);
+        exit(0);
+    })
+    .ok();
+
     for _ in 0..count {
         let prefix = prefix.clone();
         let successes = Arc::clone(&successes);
@@ -117,7 +133,10 @@ async fn main() {
                     } else {
                         successes.fetch_add(1, Ordering::Relaxed);
                         log_to_file(
-                            LogLevel::Info(format!("Got Response (as expected): {}", response.status()).as_str()),
+                            LogLevel::Info(
+                                format!("Got Response (as expected): {}", response.status())
+                                    .as_str(),
+                            ),
                             args.logs,
                         );
                     }
@@ -140,28 +159,49 @@ async fn main() {
         task.await.unwrap();
     }
 
-    let elapsed_time = start_time.elapsed().as_millis();
-    let fails = fails.load(Ordering::Relaxed).to_string();
-    let successes = successes.load(Ordering::Relaxed).to_string();
-    println!(
-        "{prefix} Done ({} ms)! Successes: {}, Fails: {}",
-        elapsed_time.to_string().blue(),
-        successes.to_string().green(),
-        fails.to_string().red()
-    );
-
-    log_to_file(
-        LogLevel::Info(
-            format!(
-                "Done ({} ms)! Successes: {}, Fails: {}",
-                elapsed_time, successes, fails
-            )
-            .as_str(),
-        ),
-        args.logs,
-    );
+    let elapsed_time = start_time.elapsed();
+    let successes = successes.load(Ordering::Relaxed);
+    let fails = fails.load(Ordering::Relaxed);
+    println!("{prefix} Done! Stats below:");
+    log_stats(elapsed_time, successes, fails, args.logs, prefix);
 }
 
+fn log_stats(
+    elapsed_time: Duration,
+    successes: usize,
+    fails: usize,
+    log_file: bool,
+    prefix: ColoredString,
+) {
+    let avg_pps = format!(
+        "{:.2}",
+        (successes + fails) as f64 / (elapsed_time.as_secs_f64())
+    );
+    log_to_file(
+        LogLevel::Info(format!("Time: {} ms", elapsed_time.as_millis()).as_str()),
+        log_file,
+    );
+    log_to_file(
+        LogLevel::Info(format!("Sucesses: {}", successes).as_str()),
+        log_file,
+    );
+    log_to_file(
+        LogLevel::Info(format!("Fails: {}", fails).as_str()),
+        log_file,
+    );
+    log_to_file(
+        LogLevel::Info(format!("Avg. P/s: {}", avg_pps).as_str()),
+        log_file,
+    );
+
+    println!(
+        "{prefix} Time: {} ms",
+        elapsed_time.as_millis().to_string().blue()
+    );
+    println!("{prefix} Successes: {}", successes.to_string().green());
+    println!("{prefix} Fails: {}", fails.to_string().red());
+    println!("{prefix} Avg. P/s: {}", avg_pps.to_string().yellow());
+}
 enum LogLevel<'a> {
     Info(&'a str),
     Error(&'a str),
